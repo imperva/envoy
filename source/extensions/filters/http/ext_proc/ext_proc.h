@@ -108,10 +108,13 @@ public:
 
   Http::FilterHeadersStatus decodeHeaders(Http::RequestHeaderMap& headers,
                                           bool end_stream) override;
+  Http::FilterTrailersStatus decodeTrailers(Http::RequestTrailerMap& trailers) override;
   Http::FilterDataStatus decodeData(Buffer::Instance& data, bool end_stream) override;
 
   Http::FilterHeadersStatus encodeHeaders(Http::ResponseHeaderMap& headers,
                                           bool end_stream) override;
+  // as of yet unused in the ext_proc service since we are not yet processing trailers
+  Http::FilterTrailersStatus encodeTrailers(Http::ResponseTrailerMap& trailers) override;
   Http::FilterDataStatus encodeData(Buffer::Instance& data, bool end_stream) override;
 
   // ExternalProcessorCallbacks
@@ -159,6 +162,10 @@ private:
   // Set to true when an "immediate response" has been delivered. This helps us
   // know what response to return from certain failures.
   bool sent_immediate_response_ = false;
+
+  // The trailers received.
+  Http::RequestTrailerMap* request_trailers_ = nullptr;
+  Http::ResponseTrailerMap* response_trailers_ = nullptr;
 
   // The processing mode. May be locally overridden by any response,
   // So every instance of the filter has a copy.
