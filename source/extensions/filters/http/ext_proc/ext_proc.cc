@@ -79,9 +79,9 @@ FilterHeadersStatus Filter::onHeaders(ProcessorState& state, Http::HeaderMap& he
   auto* headers_req = state.mutableHeaders(req);
   MutationUtils::buildHttpHeaders(headers, *headers_req->mutable_headers());
 
-  auto attr_utils = AttrUtils(encoder_callbacks_->streamInfo(), config_->requestAttributesSpecified(), *headers_req->mutable_attributes());
-  attr_utils.setResponseHeaders(response_headers_);
-  attr_utils.setRequestHeaders(request_headers_);
+  auto attr_utils =
+      AttrUtils(encoder_callbacks_->streamInfo(), config_->requestAttributesSpecified(),
+                *headers_req->mutable_attributes());
   attr_utils.setRequestTrailers(request_trailers_);
   attr_utils.build();
 
@@ -95,14 +95,6 @@ FilterHeadersStatus Filter::onHeaders(ProcessorState& state, Http::HeaderMap& he
   stats_.stream_msgs_sent_.inc();
   return FilterHeadersStatus::StopIteration;
 }
-FilterTrailersStatus Filter::decodeTrailers(RequestTrailerMap& trailers) {
-  ENVOY_LOG(trace, "decodeTrailers");
-  ENVOY_BUG(request_state_ == FilterState::Idle, "Invalid filter state on request path");
-
-  request_trailers_ = &trailers;
-  return FilterTrailersStatus::Continue;
-}
-
 
 FilterHeadersStatus Filter::decodeHeaders(RequestHeaderMap& headers, bool end_stream) {
   ENVOY_LOG(trace, "decodeHeaders: end_stream = {}", end_stream);
@@ -286,12 +278,6 @@ FilterHeadersStatus Filter::encodeHeaders(ResponseHeaderMap& headers, bool end_s
   const auto status = onHeaders(encoding_state_, headers, end_stream);
   ENVOY_LOG(trace, "encodeHeaders returns {}", status);
   return status;
-}
-
-FilterTrailersStatus Filter::encodeTrailers(ResponseTrailerMap& trailers) {
-  ENVOY_LOG(trace, "encodeTrailers");
-  response_trailers_ = &trailers;
-  return FilterTrailersStatus::Continue;
 }
 
 FilterDataStatus Filter::encodeData(Buffer::Instance& data, bool end_stream) {
