@@ -28,11 +28,23 @@ std::unique_ptr<Envoy::TestStreamInfo> makeStreamInfo() {
   return stream_info;
 }
 
-TEST(Attributes, EmptyAttributes) {
+TEST(Attributes, DefaultStream) {
   auto stream_info = makeStreamInfo();
   auto attrs = Attributes(*stream_info);
   std::vector<AttributeId> v;
-  attrs.buildAttributesValue(v);
+  auto value = attrs.buildAttributesValue(v);
+  EXPECT_TRUE(value.has_map_value());
+  auto map_value = value.map_value();
+  EXPECT_EQ(0, map_value.entries_size());
+}
+TEST(Attributes, StreamValues) {
+  auto stream_info = makeStreamInfo();
+  auto attrs = Attributes(*stream_info);
+  std::vector<AttributeId> v;
+  auto value = attrs.buildAttributesValue(v);
+  EXPECT_TRUE(value.has_map_value());
+  auto map_value = value.map_value();
+  EXPECT_EQ(0, map_value.entries_size());
 }
 } // namespace
 } // namespace Attributes

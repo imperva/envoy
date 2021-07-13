@@ -399,15 +399,17 @@ Value Attributes::get(UpstreamToken tok) {
 }
 
 Value Attributes::get(ConnectionToken tok) {
-  auto connId = stream_info_.connectionID();
   auto downstreamSsl = stream_info_.downstreamSslConnection();
+  auto connId = downstreamSsl->sessionId();
 
   switch (tok) {
-  case ConnectionToken::ID:
-    if (connId.has_value()) {
-      return ValueUtil::uint64Value(connId.value());
+  case ConnectionToken::ID: {
+    auto id = stream_info_.downstreamAddressProvider().connectionID();
+    if (id.has_value()) {
+      return ValueUtil::uint64Value(id.value());
     }
     break;
+  }
   case ConnectionToken::MTLS:
     // todo(eas): why is this crashing
     return ValueUtil::nullValue();
@@ -415,8 +417,10 @@ Value Attributes::get(ConnectionToken tok) {
       return ValueUtil::boolValue(downstreamSsl->peerCertificatePresented());
     }
     break;
-  case ConnectionToken::REQUESTED_SERVER_NAME:
-    return ValueUtil::stringValue(stream_info_.requestedServerName());
+  case ConnectionToken::REQUESTED_SERVER_NAME: {
+    auto sn = stream_info_.downstreamAddressProvider().requestedServerName();
+    return ValueUtil::stringValue(std::string(sn));
+  }
   case ConnectionToken::TLS_VERSION:
     if (downstreamSsl != nullptr) {
       return ValueUtil::stringValue(downstreamSsl->tlsVersion());
