@@ -45,16 +45,16 @@ using Any = google::protobuf::Any;
 
 class ValueUtil {
 public:
-  static Value optionalStringValue(const absl::optional<std::string>& str);
-  static Value stringValue(const std::string& str);
-  static Value int64Value(int64_t n);
-  static Value uint64Value(uint64_t n);
-  static Value doubleValue(double n);
-  static Value boolValue(bool b);
-  template <class T> static Value objectValue(T val);
-  static Value mapValue(MapValue* m);
+  static Value* optionalStringValue(const absl::optional<std::string>& str);
+  static Value* stringValue(const std::string& str);
+  static Value* int64Value(int64_t n);
+  static Value* uint64Value(uint64_t n);
+  static Value* doubleValue(double n);
+  static Value* boolValue(bool b);
+  template <class T> static Value* objectValue(T val);
+  static Value* mapValue(MapValue* m);
   static MapValue_Entry* getOrInsert(MapValue* m, absl::string_view key);
-  static const Value nullValue();
+  static Value* nullValue();
 };
 
 class Attributes : public Logger::Loggable<Logger::Id::filter> {
@@ -74,15 +74,15 @@ public:
 private:
   template <class T> Value full();
   Value full(RootToken tok);
-  Value get(AttributeId& attr_id);
-  Value get(RequestToken tok);
-  Value get(ResponseToken tok);
-  Value get(SourceToken tok);
-  Value get(DestinationToken tok);
-  Value get(ConnectionToken tok);
-  Value get(UpstreamToken tok);
-  Value getMetadata();
-  Value getFilterState();
+  Value* get(AttributeId& attr_id);
+  Value* get(RequestToken tok);
+  Value* get(ResponseToken tok);
+  Value* get(SourceToken tok);
+  Value* get(DestinationToken tok);
+  Value* get(ConnectionToken tok);
+  Value* get(UpstreamToken tok);
+  Value* getMetadata();
+  Value* getFilterState();
 
   std::string getTs();
   std::string formatDuration(absl::Duration duration);

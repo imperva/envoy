@@ -41,76 +41,92 @@ MapValue_Entry* ValueUtil::getOrInsert(MapValue* m, absl::string_view key) {
     return nullptr;
   }
   MapValue_Entry* e = m->add_entries();
-  auto key_val = ValueUtil::stringValue(std::string(key));
-  e->set_allocated_key(&key_val);
+  auto k = e->mutable_key();
+  k->set_string_value(std::string(key));
+
   return e;
 }
 
-Value ValueUtil::mapValue(MapValue* m) {
-  Value val;
-  val.set_allocated_map_value(m);
+Value* ValueUtil::mapValue(MapValue* m) {
+  Value* val = new Value();
+  val->set_allocated_map_value(m);
   return val;
 }
 
-Value ValueUtil::stringValue(const std::string& str) {
-  Value val;
-  val.set_string_value(str);
+Value* ValueUtil::stringValue(const std::string& str) {
+  Value* val = new Value();
+  val->set_string_value(str);
   return val;
 }
 
-Value ValueUtil::optionalStringValue(const absl::optional<std::string>& str) {
+Value* ValueUtil::optionalStringValue(const absl::optional<std::string>& str) {
   if (str.has_value()) {
     return ValueUtil::stringValue(str.value());
   }
   return ValueUtil::nullValue();
 }
 
-Value ValueUtil::uint64Value(uint64_t n) {
-  Value val;
-  val.set_uint64_value(n);
+Value* ValueUtil::uint64Value(uint64_t n) {
+  Value* val = new Value();
+  val->set_uint64_value(n);
   return val;
 }
 
-const Value ValueUtil::nullValue() {
-  Value v1;
-  Value v;
-  v.set_null_value(v1.null_value());
+Value* ValueUtil::nullValue() {
+  Value* v = new Value();
+  v->set_null_value(v->null_value());
   return v;
 }
-template <class T> Value ValueUtil::objectValue(T val) {
-  Value vv;
-  Value any_v;
-  Any* a = any_v.mutable_object_value();
+
+template <class T> Value* ValueUtil::objectValue(T val) {
+  Value* v = new Value();
+  Any* a = v->mutable_object_value();
   a->PackFrom(*val);
-  vv.set_allocated_object_value(a);
-  return vv;
+
+  return v;
 }
 
 Value Attributes::buildAttributesValue(const std::vector<AttributeId>& attrs) {
-  google::protobuf::Arena a;
-  MapValue* map = google::protobuf::Arena::CreateMessage<MapValue>(&a);
+  Value* value = new Value();
+  auto map = value->mutable_map_value();
 
   for (auto attr : attrs) {
     RootToken root_token = attr.root();
     MapValue_Entry* root_entry = ValueUtil::getOrInsert(map, attr.root_name());
+
+    std::cerr << "Inserting root_name: " << attr.root_name() << "\n";
     if (!attr.sub()) {
+      std::cerr << "attr is a root entry\n";
+
       // get the full map
       Value val = full(root_token);
       root_entry->set_allocated_value(&val);
     } else {
+      std::cerr << "attr has a subentry\n";
       Value* root_entry_val = root_entry->mutable_value();
       MapValue* sub_map = root_entry_val->mutable_map_value();
 
       auto sub_key = attr.sub_name();
       MapValue_Entry* sub_entry = ValueUtil::getOrInsert(sub_map, *sub_key);
-      Value sub_val = get(attr);
-      sub_entry->set_allocated_value(&sub_val);
+      Value* sub_val = get(attr);
+      std::cerr << "done with get\n";
+
+      if (sub_entry == nullptr) {
+        std::cerr << "sub_entry null\n";
+      }
+      sub_entry->set_allocated_value(sub_val);
     }
   }
-  return ValueUtil::mapValue(map);
+
+  if (value == nullptr) {
+    std::cerr << "value null\n";
+  }
+  auto v = *value;
+  std::cerr << "end of buildAttributesValue\n";
+  return v;
 }
 
-Value Attributes::get(AttributeId& attr_id) {
+Value* Attributes::get(AttributeId& attr_id) {
   switch (attr_id.root()) {
   case RootToken::REQUEST: {
     RequestToken tok;
@@ -166,31 +182,32 @@ Value Attributes::full(RootToken tok) {
   case RootToken::UPSTREAM:
     return full<UpstreamToken>();
   case RootToken::METADATA:
-    return getMetadata();
+    return *getMetadata();
   case RootToken::FILTER_STATE:
-    return getFilterState();
+    return *getFilterState();
   }
 }
 template <class T> Value Attributes::full() {
-  google::protobuf::Arena a;
-  MapValue* m = google::protobuf::Arena::CreateMessage<MapValue>(&a);
+  Value* v = new Value();
+  MapValue* m = v->mutable_map_value();
 
   for (auto element : request_tokens) {
-    Value val = get(element.second);
+    Value* val = get(element.second);
     MapValue_Entry* e = m->add_entries();
     auto key = ValueUtil::stringValue(std::string(element.first));
-    e->set_allocated_key(&key);
+    e->set_allocated_key(key);
     Value vv;
     Value any_v;
     Any* a = any_v.mutable_object_value();
-    a->PackFrom(val);
+    a->PackFrom(*val);
     vv.set_allocated_object_value(a);
     e->set_allocated_value(&vv);
   }
-  return ValueUtil::mapValue(m);
+
+  return *v;
 }
 
-Value Attributes::get(RequestToken tok) {
+Value* Attributes::get(RequestToken tok) {
   auto headers = request_headers_;
 
   switch (tok) {
@@ -269,7 +286,7 @@ Value Attributes::get(RequestToken tok) {
   return ValueUtil::nullValue();
 }
 
-Value Attributes::get(ResponseToken tok) {
+Value* Attributes::get(ResponseToken tok) {
   switch (tok) {
   case ResponseToken::CODE:
     if (stream_info_.responseCode().has_value()) {
@@ -297,7 +314,7 @@ Value Attributes::get(ResponseToken tok) {
   return ValueUtil::nullValue();
 }
 
-Value Attributes::get(SourceToken tok) {
+Value* Attributes::get(SourceToken tok) {
 
   if (stream_info_.upstreamHost() == nullptr) {
     return ValueUtil::nullValue();
@@ -318,7 +335,7 @@ Value Attributes::get(SourceToken tok) {
   }
 }
 
-Value Attributes::get(DestinationToken tok) {
+Value* Attributes::get(DestinationToken tok) {
   auto addr = stream_info_.downstreamAddressProvider().localAddress();
   if (addr == nullptr) {
     return ValueUtil::nullValue();
@@ -335,7 +352,7 @@ Value Attributes::get(DestinationToken tok) {
   }
 }
 
-Value Attributes::get(UpstreamToken tok) {
+Value* Attributes::get(UpstreamToken tok) {
   auto upstreamHost = stream_info_.upstreamHost();
   auto upstreamSsl = stream_info_.upstreamSslConnection();
 
@@ -398,14 +415,15 @@ Value Attributes::get(UpstreamToken tok) {
   return ValueUtil::nullValue();
 }
 
-Value Attributes::get(ConnectionToken tok) {
+Value* Attributes::get(ConnectionToken tok) {
   auto downstreamSsl = stream_info_.downstreamSslConnection();
-  auto connId = downstreamSsl->sessionId();
 
   switch (tok) {
   case ConnectionToken::ID: {
     auto id = stream_info_.downstreamAddressProvider().connectionID();
+    std::cerr << "checking if id exists\n";
     if (id.has_value()) {
+      std::cerr << "id exists\n";
       return ValueUtil::uint64Value(id.value());
     }
     break;
@@ -464,7 +482,7 @@ Value Attributes::get(ConnectionToken tok) {
   return ValueUtil::nullValue();
 }
 
-Value Attributes::getMetadata() {
+Value* Attributes::getMetadata() {
   //   if (attributes_.contains(METADATA_TOKEN)) {
   //     MapValue m;
   //     for (auto const& [k, v] : stream_info_.dynamicMetadata().filter_metadata()) {
@@ -495,7 +513,7 @@ Value Attributes::getMetadata() {
 //   is indicated that the filter state values should be binary data, but `Value` only allows the
 //   following: [null, number, string, bool, struct, list] where struct is simply a `map<string,
 //   value>`.
-Value Attributes::getFilterState() { return ValueUtil::nullValue(); }
+Value* Attributes::getFilterState() { return ValueUtil::nullValue(); }
 
 std::string Attributes::formatDuration(absl::Duration duration) {
   return absl::FormatDuration(duration);
@@ -533,7 +551,7 @@ absl::optional<Value> Attributes::getGrpcStatus() {
   auto const& optional_status = Envoy::Grpc::Common::getGrpcStatus(ts, hs, stream_info_);
 
   if (optional_status.has_value()) {
-    return ValueUtil::uint64Value(optional_status.value());
+    return absl::make_optional(*ValueUtil::uint64Value(optional_status.value()));
   }
   return absl::nullopt;
 }
